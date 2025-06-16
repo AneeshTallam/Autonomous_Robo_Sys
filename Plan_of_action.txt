@@ -1,0 +1,51 @@
+Digital Pins             Analog pins
+13                       A0
+12: SRCLK                A1
+11: RCLK                 A2
+10			 A3
+9: DC Motor		 A4
+8: SER			 A5
+7
+6
+5
+4
+3
+
+PWM pins: 3,5,6,9,10,11
+
+Plan
+
+1) connect accelerometer
+
+4 connections: SCL, SDA, power, GND
+SCL: Arduino uno top bokka
+SDA: The bokka below SCL
+check using accel_check code
+
+2) connect DC motor
+
+2 connections: pin 9, GND
+use DC_motor_check code
+
+3) Check if tilt changes speed using tilt_to_control_speed code
+
+4) Connect 7 segment display using shift register
+
+Refer to shift register pinout.png (Remember QA pin on the other side)
+SER: pin 8
+SRCLK: pin 12
+RCLK: pin 11
+OE: GND
+SRCLR: Power
+VCC, GND for register
+
+segment connections
+Place resistors in between
+a to QA, b to QB,..... 
+All correct: QH must be left at end
+common pin to GND
+
+check connections using segment_display_check
+
+5) Show speed on display using tilt_and_speed_display
+
