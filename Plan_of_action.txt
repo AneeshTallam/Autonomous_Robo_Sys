@@ -3,10 +3,10 @@ Digital Pins             Analog pins
 12: SRCLK                A1
 11: RCLK                 A2
 10			 A3
-9: DC Motor		 A4
+9: H-bridge		 A4
 8: SER			 A5
-7
-6
+7: Joystick
+6: Servo
 5
 4
 3
@@ -20,11 +20,20 @@ Plan
 4 connections: SCL, SDA, power, GND
 SCL: Arduino uno top bokka
 SDA: The bokka below SCL
+
 check using accel_check code
 
-2) connect DC motor
+2) connect H bridge and DC motor
 
-2 connections: pin 9, GND
+refer to H bridge pin out.png
+pin 1: Arduino pin 9
+pin 2: Power
+pin 3: DC motor
+pin 6: DC motor 2nd terminal
+pin 7,4,5,12,13: GND
+pin 8,13: power
+
+
 use DC_motor_check code
 
 3) Check if tilt changes speed using tilt_to_control_speed code
@@ -41,6 +50,7 @@ VCC, GND for register
 
 segment connections
 Place resistors in between
+Refer to 7_segment_pinout.png 
 a to QA, b to QB,..... 
 All correct: QH must be left at end
 common pin to GND
@@ -48,4 +58,25 @@ common pin to GND
 check connections using segment_display_check
 
 5) Show speed on display using tilt_and_speed_display
+
+6) Connect a servo motor
+red : Power
+brown: GND
+yellow: Arduino pin 6
+
+check using servo_check
+
+7) Complete speed req using tilt_with_display_and_servo 
+
+8) Check fall detection working or not using prev_code_with_fall_detect
+
+9) Connect joystick
+VRx: A0
+VRy: A1
+SW: pin 7
+GND and power
+
+check using joystick_check
+
+10) check drone mode working or not using prev_code_with_drone_mode
 

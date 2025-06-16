@@ -1,23 +1,23 @@
-const int motorPin = 9; // Connect this to motor + terminal
+const int enablePin = 9; // PWM to L293D Enable pin 1
 
 void setup() {
-  pinMode(motorPin, OUTPUT);
+  pinMode(enablePin, OUTPUT);
 }
 
 void loop() {
-  // Ramp motor speed from 0 to 255
-  for (int speed = 0; speed <= 255; speed++) {
-    analogWrite(motorPin, speed);
-    delay(10);
+  // Speed up
+  for (int speed = 0; speed <= 255; speed += 5) {
+    analogWrite(enablePin, speed);
+    delay(30); // Adjust delay for ramping speed
   }
 
-  delay(1000); // Full speed hold
+  delay(500); // Hold at full speed
 
-  // Ramp motor speed back down
-  for (int speed = 255; speed >= 0; speed--) {
-    analogWrite(motorPin, speed);
-    delay(10);
+  // Slow down
+  for (int speed = 255; speed >= 0; speed -= 5) {
+    analogWrite(enablePin, speed);
+    delay(30);
   }
 
-  delay(1000); // Motor stopped
+  delay(500); // Pause before repeating
 }

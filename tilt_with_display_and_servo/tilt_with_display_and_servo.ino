@@ -1,17 +1,20 @@
 #include <Wire.h>
 #include <Adafruit_Sensor.h>
 #include <Adafruit_ADXL345_U.h>
+#include <Servo.h> 
 
-// Accelerometer setup
 Adafruit_ADXL345_Unified accel = Adafruit_ADXL345_Unified(12345);
 
-// H-bridge Enable pin for motor (L293D Pin 1)
-const int enablePin = 9;
+const int enablePin = 9; // PWM to L293D Enable pin
 
-// Shift register pins for 7-segment display
+// 7-segment shift register pins
 const int dataPin  = 8;
 const int latchPin = 11;
 const int clockPin = 12;
+
+// Servo pin
+const int servoPin = 6;
+Servo speedServo; // Servo object
 
 // 7-segment digit encodings (common cathode)
 const byte digitSegments[] = {
@@ -36,11 +39,13 @@ void setup() {
   }
 
   accel.setRange(ADXL345_RANGE_2_G); // ±2g
-  pinMode(enablePin, OUTPUT);        // L293D Enable pin (PWM)
 
+  pinMode(enablePin, OUTPUT);
   pinMode(dataPin, OUTPUT);
   pinMode(latchPin, OUTPUT);
   pinMode(clockPin, OUTPUT);
+
+  speedServo.attach(servoPin); // Attach servo to pin 6
 }
 
 void loop() {
@@ -50,25 +55,27 @@ void loop() {
   float x = event.acceleration.x / 9.81;
   x = constrain(x, -1.0, 1.0);
 
-  // Convert tilt to motor speed (0–255)
   int speed = map(x * 100, -100, 100, 0, 255);
   speed = constrain(speed, 0, 255);
 
-  analogWrite(enablePin, speed); // PWM to control motor speed via H-bridge
+  analogWrite(enablePin, speed); // Drive motor via H-bridge
 
-  // Map speed to a single digit (0–9)
   int displayDigit = map(speed, 0, 255, 0, 9);
+  displayDigitOn7Segment(displayDigit);
 
-  // Debug info
+  // Update servo position as speedometer
+  int angle = map(speed, 0, 255, 0, 180);
+  speedServo.write(angle);
+
+  // Debug output
   Serial.print("Tilt X = ");
   Serial.print(x, 2);
   Serial.print(" g   -> Speed = ");
   Serial.print(speed);
-  Serial.print("  -> Display Digit = ");
-  Serial.println(displayDigit);
-
-  // Show digit on 7-segment display
-  displayDigitOn7Segment(displayDigit);
+  Serial.print("  -> Digit = ");
+  Serial.print(displayDigit);
+  Serial.print("  -> Servo Angle = ");
+  Serial.println(angle);
 
   delay(100);
 }
@@ -79,3 +86,4 @@ void displayDigitOn7Segment(int digit) {
   shiftOut(dataPin, clockPin, MSBFIRST, digitSegments[digit]);
   digitalWrite(latchPin, HIGH);
 }
+

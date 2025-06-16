@@ -4,7 +4,7 @@
 
 Adafruit_ADXL345_Unified accel = Adafruit_ADXL345_Unified(12345);
 
-const int motorPin = 9; // PWM pin connected to motor
+const int enablePin = 9; // Connect this to L293D Pin 1 (Enable 1)
 
 void setup() {
   Serial.begin(9600);
@@ -15,14 +15,16 @@ void setup() {
   }
 
   accel.setRange(ADXL345_RANGE_2_G); // ±2g range
-  pinMode(motorPin, OUTPUT);
+  pinMode(enablePin, OUTPUT);
+
+  // Direction is fixed in hardware: IN1 = 5V, IN2 = GND
 }
 
 void loop() {
   sensors_event_t event;
   accel.getEvent(&event);
 
-  // Read X-axis in g
+  // Read X-axis acceleration in g
   float x = event.acceleration.x / 9.81;
 
   // Clamp to safe range
@@ -31,8 +33,9 @@ void loop() {
   // Map tilt to motor speed
   // -1g → 0 speed, 0g → 127, +1g → 255
   int speed = map(x * 100, -100, 100, 0, 255);
+  speed = constrain(speed, 0, 255); // Just in case
 
-  analogWrite(motorPin, speed);
+  analogWrite(enablePin, speed); // PWM to control speed via H-bridge
 
   // Debug output
   Serial.print("Tilt X = ");
