@@ -12,6 +12,7 @@ Digital Pins             Analog pins
 3
 
 PWM pins: 3,5,6,9,10,11
+Digital side ground: 4th bokka from top
 
 Plan
 
