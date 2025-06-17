@@ -16,9 +16,7 @@ void setup() {
   accel.setRange(ADXL345_RANGE_2_G);
 
   // Calibration (offsets) — optional
-  accel.writeRegister(ADXL345_OFSX, 1);   // X-axis offset
-  accel.writeRegister(ADXL345_OFSY, -2);  // Y-axis offset
-  accel.writeRegister(ADXL345_OFSZ, -7);  // Z-axis offset
+ // Z-axis offset
 
   Serial.println("ADXL345 Initialized");
   delay(100);

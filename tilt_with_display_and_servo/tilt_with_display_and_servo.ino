@@ -64,7 +64,7 @@ void loop() {
   displayDigitOn7Segment(displayDigit);
 
   // Update servo position as speedometer
-  int angle = map(speed, 0, 255, 0, 180);
+  int angle = map(speed, 0, 255, 180, 0);
   speedServo.write(angle);
 
   // Debug output
@@ -86,4 +86,3 @@ void displayDigitOn7Segment(int digit) {
   shiftOut(dataPin, clockPin, MSBFIRST, digitSegments[digit]);
   digitalWrite(latchPin, HIGH);
 }
-
