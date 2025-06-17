@@ -1,43 +1,44 @@
 #include <Wire.h>
-#include <Adafruit_Sensor.h>
-#include <Adafruit_ADXL345_U.h>
+#include <Adafruit_ADXL345.h>
 
-// Create an ADXL345 object
-Adafruit_ADXL345_Unified accel = Adafruit_ADXL345_Unified(12345);
+// Create accelerometer object
+Adafruit_ADXL345 accel = Adafruit_ADXL345();
 
 void setup() {
   Serial.begin(9600);
+
   if (!accel.begin()) {
-    Serial.println("Ooops, no ADXL345 detected ... Check your wiring!");
+    Serial.println("No ADXL345 detected. Check wiring!");
     while (1);
   }
 
-  // Set range (optional): ADXL345_RANGE_2_G, _4_G, _8_G, _16_G
+  // Set range: ±2g, ±4g, ±8g, ±16g
   accel.setRange(ADXL345_RANGE_2_G);
 
-  // Calibration (offsets) — optional
- // Z-axis offset
+  // Write calibration offsets (values from -127 to +127)
+  accel.writeRegister(ADXL345_OFSX, 1);   // Adjust X-axis
+  accel.writeRegister(ADXL345_OFSY, -2);  // Adjust Y-axis
+  accel.writeRegister(ADXL345_OFSZ, -7);  // Adjust Z-axis
 
-  Serial.println("ADXL345 Initialized");
-  delay(100);
+  Serial.println("ADXL345 Initialized with Internal Offset Calibration");
 }
 
 void loop() {
-  sensors_event_t event;
-  accel.getEvent(&event);
+  int16_t x, y, z;
+  accel.getAcceleration(&x, &y, &z); // Raw accelerations in mG (milli-g = 0.001g)
 
-  // Convert m/s² to g (1g ≈ 9.81 m/s²)
-  float x = event.acceleration.x / 9.81;
-  float y = event.acceleration.y / 9.81;
-  float z = event.acceleration.z / 9.81;
+  // Convert to g
+  float fx = x / 1000.0;
+  float fy = y / 1000.0;
+  float fz = z / 1000.0;
 
-  Serial.print("Xa = ");
-  Serial.print(x, 3); // 3 decimal places
-  Serial.print(" g   Ya = ");
-  Serial.print(y, 3);
-  Serial.print(" g   Za = ");
-  Serial.println(z, 3);
-  Serial.print(" g");
+  Serial.print("X = ");
+  Serial.print(fx, 3);
+  Serial.print(" g   Y = ");
+  Serial.print(fy, 3);
+  Serial.print(" g   Z = ");
+  Serial.print(fz, 3);
+  Serial.println(" g");
 
   delay(250);
 }
