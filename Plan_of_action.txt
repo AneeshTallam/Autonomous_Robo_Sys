@@ -2,13 +2,13 @@ Digital Pins             Analog pins
 13                       A0: Joystick X
 12: SRCLK                A1: Joystick Y
 11: RCLK                 A2
-10			             A3
-9: H-bridge		         A4
-8: SER			         A5
+10			 A3
+9: H-bridge		 A4
+8: SER			 A5
 7: Joystick
 6: Servo
-5
-4
+5: Trig pin
+4: echo pin
 3
 
 PWM pins: 3,5,6,9,10,11
@@ -81,3 +81,10 @@ check using joystick_check
 
 10) check drone mode working or not using prev_code_with_drone_mode
 
+11) Connect ultrasound sensor
+Power
+GND
+Trigger pin: pin 5
+Echo pin: pin 4
+
+12) check braking condition using prev_code_with_distance_braking
