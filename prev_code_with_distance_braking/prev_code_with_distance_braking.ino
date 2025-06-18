@@ -130,8 +130,8 @@ void loop() {
 
   // Obstacle detection and braking
   long distance = getDistanceCM();
-  if (distance < 100) {
-    int brakeFactor = map(distance, 0, 100, speed, 0);
+  if (distance < 20) {
+    int brakeFactor = map(distance, 0, 20, speed, 0);
     speed = constrain(brakeFactor, 0, 255);
   }
 

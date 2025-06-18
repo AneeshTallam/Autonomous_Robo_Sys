@@ -88,3 +88,7 @@ Trigger pin: pin 5
 Echo pin: pin 4
 
 12) check braking condition using prev_code_with_distance_braking
+
+Pending shit to resolve:
+Correct accelerometer code. fall detect not coming out of loop. Also try to correct thresholds. threshold approx 11 value when stationary
+Create segment display check without using bytes

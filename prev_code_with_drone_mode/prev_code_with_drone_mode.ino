@@ -37,7 +37,7 @@ const byte digitSegments[] = {
 
 // Fall detection thresholds (in m/s^2)
 const float freeFallThreshold = 0.2 * 9.81; // ~0.2g
-const float impactThreshold = 3.0 * 9.81;   // ~3g
+const float impactThreshold = 2.0 * 9.81;   // ~3g
 
 // Drone mode flag and button state tracking
 bool droneMode = false;
@@ -94,7 +94,8 @@ void loop() {
     Serial.println(totalAccel);
 
     delay(100); // Small delay to avoid flooding Serial
-    return;     // Skip rest of loop
+    return;
+    break;// Skip rest of loop
   }
 
   int speed;
