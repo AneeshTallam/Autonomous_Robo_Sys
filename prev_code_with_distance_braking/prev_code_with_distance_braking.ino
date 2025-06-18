@@ -17,7 +17,7 @@ const int servoPin = 6;
 Servo speedServo; // Servo object
 
 // Joystick pins
-const int joyXPin = A0;       // Not used here but wired for completeness
+const int joyXPin = A0;       
 const int joyYPin = A1;       // Y-axis for speed control in drone mode
 const int joyButtonPin = 7;   // Joystick button pin
 
@@ -25,7 +25,7 @@ const int joyButtonPin = 7;   // Joystick button pin
 const int trigPin = 5;
 const int echoPin = 4;
 
-// 7-segment digit encodings (common cathode)
+// 7-segment digit encodings 
 const byte digitSegments[] = {
   0b00111111, // 0
   0b00000110, // 1
@@ -40,8 +40,8 @@ const byte digitSegments[] = {
 };
 
 // Fall detection thresholds (in m/s^2)
-const float freeFallThreshold = 0.4 * 9.81; // ~0.2g
-const float impactThreshold = 2.0 * 9.81;   // ~3g
+const float lowerThreshold = 0.4 * 9.81; // ~0.2g
+const float upperThreshold = 2.0 * 9.81;   // ~3g
 
 // Drone mode flag and button state tracking
 bool droneMode = false;
@@ -49,11 +49,6 @@ int lastButtonState = HIGH;
 
 void setup() {
   Serial.begin(9600);
-
-  if (!accel.begin()) {
-    Serial.println("No ADXL345 detected.");
-    while (1);
-  }
 
   accel.setRange(ADXL345_RANGE_2_G); // ±2g
 
@@ -103,14 +98,14 @@ void loop() {
   float az = event.acceleration.z;
   float totalAccel = sqrt(ax*ax + ay*ay + az*az);
 
-if (totalAccel < freeFallThreshold || totalAccel > impactThreshold) {
+if (totalAccel < lowerThreshold || totalAccel > upperThreshold) {
   // Emergency stop on fall or impact
   analogWrite(enablePin, 0);
   speedServo.write(0);
   displayDigitOn7Segment(0);
 
-  Serial.print("Fall or impact detected! Total Accel: ");
-  Serial.println(totalAccel);
+  Serial.print("Fall or impact detected!");
+
 
   // Halt execution completely
   while (true);  // Or use: for(;;);
