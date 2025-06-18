@@ -89,6 +89,13 @@ Echo pin: pin 4
 
 12) check braking condition using prev_code_with_distance_braking
 
+13) Connect a photoresistor. One leg to GND, other to a resistor, A2 pin in the same line and power to the other leg of normal resistor
+
+14) Connect an LED. Long leg to pin 3, short leg to resistor and other resistor leg to GND
+
+15) Connect a potentiometer. Edge legs to GND and power, middle leg to A3 pin. Use photoresistor_and_pot code for checking
+
 Pending shit to resolve:
 Correct accelerometer code. fall detect not coming out of loop. Also try to correct thresholds. threshold approx 11 value when stationary
 Create segment display check without using bytes
+Speed not reaching 9 in drone mode

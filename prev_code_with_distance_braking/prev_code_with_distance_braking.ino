@@ -40,8 +40,8 @@ const byte digitSegments[] = {
 };
 
 // Fall detection thresholds (in m/s^2)
-const float freeFallThreshold = 0.2 * 9.81; // ~0.2g
-const float impactThreshold = 3.0 * 9.81;   // ~3g
+const float freeFallThreshold = 0.4 * 9.81; // ~0.2g
+const float impactThreshold = 2.0 * 9.81;   // ~3g
 
 // Drone mode flag and button state tracking
 bool droneMode = false;
@@ -103,24 +103,24 @@ void loop() {
   float az = event.acceleration.z;
   float totalAccel = sqrt(ax*ax + ay*ay + az*az);
 
-  if (totalAccel < freeFallThreshold || totalAccel > impactThreshold) {
-    // Emergency stop on fall or impact
-    analogWrite(enablePin, 0);
-    speedServo.write(0);
-    displayDigitOn7Segment(0);
+if (totalAccel < freeFallThreshold || totalAccel > impactThreshold) {
+  // Emergency stop on fall or impact
+  analogWrite(enablePin, 0);
+  speedServo.write(0);
+  displayDigitOn7Segment(0);
 
-    Serial.print("Fall or impact detected! Total Accel: ");
-    Serial.println(totalAccel);
+  Serial.print("Fall or impact detected! Total Accel: ");
+  Serial.println(totalAccel);
 
-    delay(100);
-    return;     // Skip rest of loop
-  }
+  // Halt execution completely
+  while (true);  // Or use: for(;;);
+}
 
   int speed;
 
   if (droneMode) {
     int joyVal = analogRead(joyYPin);
-    speed = map(joyVal, 0, 1023, 0, 255);
+    speed = map(joyVal, 0, 980, 0, 255);
   } else {
     float x = event.acceleration.x / 9.81;
     x = constrain(x, -1.0, 1.0);

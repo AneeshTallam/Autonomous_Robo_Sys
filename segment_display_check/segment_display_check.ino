@@ -1,40 +1,60 @@
-// Shift register pins
-const int dataPin  = 8;   // DS
-const int latchPin = 11;  // STCP
-const int clockPin = 12;  // SHCP
+#define PIN_SHIFT 12   // connected to SHCP (Reverse 11 and 12 if not working)
+#define PIN_STORE 11  // connected to STCP
+#define PIN_DATA  8  // connected to DS
 
-// Segment encodings for digits 0-9 (common cathode)
-const byte digitSegments[] = {
-  0b00111111, // 0
-  0b00000110, // 1
-  0b01011011, // 2
-  0b01001111, // 3
-  0b01100110, // 4
-  0b01101101, // 5
-  0b01111101, // 6
-  0b00000111, // 7
-  0b01111111, // 8
-  0b01101111  // 9
+
+void setup()
+{
+  Serial.begin(9600);
+  pinMode(PIN_STORE, OUTPUT);
+  pinMode(PIN_SHIFT, OUTPUT);
+  pinMode(PIN_DATA, OUTPUT);
+
+  
+}
+
+int digit0[] = {1,1,1,1,1,1,0,0};
+int digit1[] = {0,1,1,0,0,0,0,0};
+int digit2[] = {1,1,0,1,1,0,1,0};
+int digit3[] = {1,1,1,1,0,0,1,0};
+int digit4[] = {0,1,1,0,0,1,1,0};
+int digit5[] = {1,0,1,1,0,1,1,0};
+int digit6[] = {1,0,1,1,1,1,1,0};
+int digit7[] = {1,1,1,0,0,0,0,0};
+int digit8[] = {1,1,1,1,1,1,1,0};
+int digit9[] = {1,1,1,0,0,1,1,0};
+
+int* ledpins[] = {
+  digit0,
+  digit1,
+  digit2,
+  digit3,
+  digit4,
+  digit5,
+  digit6,
+  digit7,
+  digit8,
+  digit9
 };
 
-void setup() {
-  pinMode(dataPin, OUTPUT);
-  pinMode(latchPin, OUTPUT);
-  pinMode(clockPin, OUTPUT);
-}
-
 void loop() {
-  for (int digit = 0; digit <= 9; digit++) {
-    displayDigit(digit);
-    delay(1000); // Wait 1 second before showing the next number
-  }
-}
+  
 
-// Sends a digit to the 7-segment display
-void displayDigit(int digit) {
-  if (digit < 0 || digit > 9) return;
+    digitalWrite(PIN_STORE, LOW); // Start sending data
+    // Send each bit
+    for (int i = 0; i < 10; i++) {
+      digitalWrite(PIN_STORE, LOW); // Start sending data
+      for (int j = 7; j >=0; j--) {
+        digitalWrite(PIN_SHIFT, LOW);       // Prepare for bit
+        digitalWrite(PIN_DATA, ledpins[i][j]);  // Send current bit
+        digitalWrite(PIN_SHIFT, HIGH);      // Clock in the bit
+      }
+      digitalWrite(PIN_STORE, HIGH); // Latch data to output
+      delay(1000); // Wait so we can see the LEDs
+    }
+    
 
-  digitalWrite(latchPin, LOW);
-  shiftOut(dataPin, clockPin, MSBFIRST, digitSegments[digit]);
-  digitalWrite(latchPin, HIGH);
+
+    
+
 }
