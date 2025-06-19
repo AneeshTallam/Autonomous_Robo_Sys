@@ -4,7 +4,11 @@
 
 Adafruit_ADXL345_Unified accel = Adafruit_ADXL345_Unified(12345);
 
-const int enablePin = 9; // Connect this to L293D Pin 1 (Enable 1)
+const int enablePin = 9; // PWM to L293D Enable pin
+
+int currentSpeed = 0;  // Tracks speed across loops
+const float tiltThreshold = 0.1; // g-units, to ignore small noise
+const int speedStep = 5; // How much to increment/decrement per loop
 
 void setup() {
   Serial.begin(9600);
@@ -14,34 +18,35 @@ void setup() {
     while (1);
   }
 
-  accel.setRange(ADXL345_RANGE_2_G); // ±2g range
+  accel.setRange(ADXL345_RANGE_2_G); // ±2g
   pinMode(enablePin, OUTPUT);
-
-  // Direction is fixed in hardware: IN1 = 5V, IN2 = GND
 }
 
 void loop() {
   sensors_event_t event;
   accel.getEvent(&event);
 
-  // Read X-axis acceleration in g
-  float x = event.acceleration.x / 9.81;
+  float x = event.acceleration.x / 9.81; // Convert to g-units
 
-  // Clamp to safe range
-  x = constrain(x, -1.0, 1.0);
+  // Forward tilt = increase speed
+  if (x > tiltThreshold) {
+    currentSpeed += speedStep;
+  }
+  // Backward tilt = decrease speed
+  else if (x < -tiltThreshold) {
+    currentSpeed -= speedStep;
+  }
+  // Otherwise (horizontal), do nothing (hold speed)
 
-  // Map tilt to motor speed
-  // -1g → 0 speed, 0g → 127, +1g → 255
-  int speed = map(x * 100, -100, 100, 0, 255);
-  speed = constrain(speed, 0, 255); // Just in case
+  currentSpeed = constrain(currentSpeed, 0, 255); // Clamp to valid PWM range
 
-  analogWrite(enablePin, speed); // PWM to control speed via H-bridge
+  analogWrite(enablePin, currentSpeed);
 
-  // Debug output
-  Serial.print("Tilt X = ");
+  // Debug info
+  Serial.print("X Tilt (g): ");
   Serial.print(x, 2);
-  Serial.print(" g   -> Speed = ");
-  Serial.println(speed);
+  Serial.print(" | Speed: ");
+  Serial.println(currentSpeed);
 
-  delay(100);
+  delay(100); // Adjust for smoothness
 }

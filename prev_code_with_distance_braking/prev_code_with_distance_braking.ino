@@ -5,7 +5,7 @@
 
 Adafruit_ADXL345_Unified accel = Adafruit_ADXL345_Unified(12345);
 
-const int enablePin = 9; // PWM to L293D Enable pin
+const int enablePin = 9;
 
 // 7-segment shift register pins
 const int dataPin  = 8;
@@ -14,18 +14,18 @@ const int clockPin = 12;
 
 // Servo pin
 const int servoPin = 6;
-Servo speedServo; // Servo object
+Servo speedServo;
 
 // Joystick pins
-const int joyXPin = A0;       
-const int joyYPin = A1;       // Y-axis for speed control in drone mode
-const int joyButtonPin = 7;   // Joystick button pin
+const int joyXPin = A0;
+const int joyYPin = A1;
+const int joyButtonPin = 7;
 
 // Ultrasonic sensor pins
 const int trigPin = 5;
 const int echoPin = 4;
 
-// 7-segment digit encodings 
+// 7-segment digit encodings
 const byte digitSegments[] = {
   0b00111111, // 0
   0b00000110, // 1
@@ -39,18 +39,26 @@ const byte digitSegments[] = {
   0b01101111  // 9
 };
 
-// Fall detection thresholds (in m/s^2)
-const float lowerThreshold = 0.4 * 9.81; // ~0.2g
-const float upperThreshold = 2.0 * 9.81;   // ~3g
+// Fall detection thresholds
+const float lowerThreshold = 0.4 * 9.81;
+const float upperThreshold = 2.0 * 9.81;
 
-// Drone mode flag and button state tracking
 bool droneMode = false;
 int lastButtonState = HIGH;
+
+int currentSpeed = 0;                        // ← persistent speed value
+const float tiltThreshold = 0.1;            // ← deadzone threshold in g
+const int speedStep = 5;                    // ← speed change per tilt
 
 void setup() {
   Serial.begin(9600);
 
-  accel.setRange(ADXL345_RANGE_2_G); // ±2g
+  if (!accel.begin()) {
+    Serial.println("No ADXL345 detected.");
+    while (1);
+  }
+
+  accel.setRange(ADXL345_RANGE_2_G);
 
   pinMode(enablePin, OUTPUT);
   pinMode(dataPin, OUTPUT);
@@ -59,7 +67,7 @@ void setup() {
 
   pinMode(joyButtonPin, INPUT_PULLUP);
 
-  speedServo.attach(servoPin); // Attach servo to pin 6
+  speedServo.attach(servoPin);
 
   pinMode(trigPin, OUTPUT);
   pinMode(echoPin, INPUT);
@@ -73,64 +81,74 @@ long getDistanceCM() {
   digitalWrite(trigPin, LOW);
 
   long duration = pulseIn(echoPin, HIGH);
-  long distance = duration * 0.034 / 2;  // in cm
-  return distance;
+  return duration * 0.034 / 2;
 }
 
 void loop() {
-  // Handle joystick button toggle for drone mode
   int buttonState = digitalRead(joyButtonPin);
   if (buttonState == LOW && lastButtonState == HIGH) {
     droneMode = !droneMode;
     Serial.print("Drone mode: ");
     Serial.println(droneMode ? "ON" : "OFF");
-    delay(200); // simple debounce delay
+    delay(200);
   }
   lastButtonState = buttonState;
 
-  // Read accelerometer
   sensors_event_t event;
   accel.getEvent(&event);
 
-  // Calculate total acceleration magnitude for fall detection
   float ax = event.acceleration.x;
   float ay = event.acceleration.y;
   float az = event.acceleration.z;
   float totalAccel = sqrt(ax*ax + ay*ay + az*az);
 
-if (totalAccel < lowerThreshold || totalAccel > upperThreshold) {
-  // Emergency stop on fall or impact
-  analogWrite(enablePin, 0);
-  speedServo.write(0);
-  displayDigitOn7Segment(0);
-
-  Serial.print("Fall or impact detected!");
-
-
-  // Halt execution completely
-  while (true);  // Or use: for(;;);
-}
-
-  int speed;
-
-  if (droneMode) {
-    int joyVal = analogRead(joyYPin);
-    speed = map(joyVal, 0, 980, 0, 255);
-  } else {
-    float x = event.acceleration.x / 9.81;
-    x = constrain(x, -1.0, 1.0);
-    speed = map(x * 100, -100, 100, 0, 255);
+  if (totalAccel < lowerThreshold || totalAccel > upperThreshold) {
+    analogWrite(enablePin, 0);
+    speedServo.write(0);
+    displayDigitOn7Segment(0);
+    Serial.print("Fall or impact detected!");
+    while (true);
   }
-  speed = constrain(speed, 0, 255);
 
-  // Obstacle detection and braking
+  // --------------------- SPEED CONTROL ---------------------
+  int speed;
+  if (droneMode) {
+  int joyVal = analogRead(joyYPin);  // Range: ~0 to 1023
+  const int center = 512;
+  const int deadZone = 50;
+
+  if (joyVal > center + deadZone) {
+    currentSpeed += speedStep;
+  } else if (joyVal < center - deadZone) {
+    currentSpeed -= speedStep;
+  }
+  // else → joystick is near center → maintain speed
+
+  currentSpeed = constrain(currentSpeed, 0, 255);
+  speed = currentSpeed;
+}
+  else {
+    float x = event.acceleration.x / 9.81;
+
+    if (x > tiltThreshold) {
+      currentSpeed += speedStep;
+    } else if (x < -tiltThreshold) {
+      currentSpeed -= speedStep;
+    }
+
+    currentSpeed = constrain(currentSpeed, 0, 255);
+    speed = currentSpeed;
+  }
+
+  // --------------------- OBSTACLE BRAKING ---------------------
   long distance = getDistanceCM();
   if (distance < 20) {
     int brakeFactor = map(distance, 0, 20, speed, 0);
     speed = constrain(brakeFactor, 0, 255);
+    currentSpeed = speed; // update currentSpeed so we resume braking state correctly
   }
 
-  analogWrite(enablePin, speed); // Control motor speed
+  analogWrite(enablePin, speed);
 
   int displayDigit = map(speed, 0, 255, 0, 9);
   displayDigitOn7Segment(displayDigit);
@@ -138,7 +156,7 @@ if (totalAccel < lowerThreshold || totalAccel > upperThreshold) {
   int angle = map(speed, 0, 255, 0, 180);
   speedServo.write(angle);
 
-  // Debug output
+  // --------------------- DEBUG OUTPUT ---------------------
   Serial.print("Drone mode: ");
   Serial.print(droneMode ? "ON" : "OFF");
   Serial.print("  Speed = ");
