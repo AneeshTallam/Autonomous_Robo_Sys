@@ -1,15 +1,16 @@
 Digital Pins             Analog pins
-13                       A0: Joystick X
+13: Stepper IN1          A0: Joystick X
 12: SRCLK                A1: Joystick Y
 11: RCLK                 A2
-10			 A3
+10: Stepper IN2		 A3
 9: Transistor		 A4
 8: SER			 A5
 7: Joystick
 6: Servo
 5: Trig pin
 4: echo pin
-3
+3: Stepper IN3
+2: Stepper IN4
 
 PWM pins: 3,5,6,9,10,11
 Digital side ground: 4th bokka from top
@@ -96,6 +97,15 @@ Echo pin: pin 4
 
 15) Connect a potentiometer. Edge legs to GND and power, middle leg to A3 pin. Use photoresistor_and_pot code for checking
 
-Tasks to complete:
-Check if new accel speed logic working using tilt_to_control_speed
-Check new joystick speed logic working with using prev_code_with_distance_braking
+16) Connect stepper motor using H-bridge.
+Refer to H-bridge pinout.png
+Pins 1, 8, 9, 16: Power
+Pins 4, 5, 12, 13: GND
+Pin2: 13
+Pin 7: 10
+Pin 10: 3
+Pin 15: 2
+
+Stepper connections: 
+1)Red wire on one side to power
+2)Start putting H-bridge pin 3, pin 7, pin 11 and pin 14 from the other side 

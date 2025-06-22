@@ -2,6 +2,7 @@
 #include <Adafruit_Sensor.h>
 #include <Adafruit_ADXL345_U.h>
 #include <Servo.h>
+#include <Stepper.h>
 
 Adafruit_ADXL345_Unified accel = Adafruit_ADXL345_Unified(12345);
 
@@ -25,6 +26,12 @@ const int joyButtonPin = 7;
 const int trigPin = 5;
 const int echoPin = 4;
 
+// Stepper motor (via H-bridge)
+const int stepsPerRevolution = 200;
+Stepper myStepper(stepsPerRevolution, 13, 10, 3, 2);
+const int joyCenter = 512;
+const int joyDeadzone = 50;
+
 // 7-segment digit encodings
 const byte digitSegments[] = {
   0b00111111, // 0
@@ -46,9 +53,9 @@ const float upperThreshold = 2.0 * 9.81;
 bool droneMode = false;
 int lastButtonState = HIGH;
 
-int currentSpeed = 0;                        // ← persistent speed value
-const float tiltThreshold = 0.1;            // ← deadzone threshold in g
-const int speedStep = 5;                    // ← speed change per tilt
+int currentSpeed = 0;
+const float tiltThreshold = 0.1;
+const int speedStep = 5;
 
 void setup() {
   Serial.begin(9600);
@@ -71,6 +78,8 @@ void setup() {
 
   pinMode(trigPin, OUTPUT);
   pinMode(echoPin, INPUT);
+
+  myStepper.setSpeed(60);  // RPM
 }
 
 long getDistanceCM() {
@@ -79,7 +88,6 @@ long getDistanceCM() {
   digitalWrite(trigPin, HIGH);
   delayMicroseconds(10);
   digitalWrite(trigPin, LOW);
-
   long duration = pulseIn(echoPin, HIGH);
   return duration * 0.034 / 2;
 }
@@ -113,29 +121,24 @@ void loop() {
   // --------------------- SPEED CONTROL ---------------------
   int speed;
   if (droneMode) {
-  int joyVal = analogRead(joyYPin);  // Range: ~0 to 1023
-  const int center = 512;
-  const int deadZone = 50;
+    int joyVal = analogRead(joyYPin);
+    const int center = 512;
+    const int deadZone = 50;
 
-  if (joyVal > center + deadZone) {
-    currentSpeed += speedStep;
-  } else if (joyVal < center - deadZone) {
-    currentSpeed -= speedStep;
-  }
-  // else → joystick is near center → maintain speed
-
-  currentSpeed = constrain(currentSpeed, 0, 255);
-  speed = currentSpeed;
-}
-  else {
+    if (joyVal > center + deadZone) {
+      currentSpeed += speedStep;
+    } else if (joyVal < center - deadZone) {
+      currentSpeed -= speedStep;
+    }
+    currentSpeed = constrain(currentSpeed, 0, 255);
+    speed = currentSpeed;
+  } else {
     float x = event.acceleration.x / 9.81;
-
     if (x > tiltThreshold) {
       currentSpeed += speedStep;
     } else if (x < -tiltThreshold) {
       currentSpeed -= speedStep;
     }
-
     currentSpeed = constrain(currentSpeed, 0, 255);
     speed = currentSpeed;
   }
@@ -145,7 +148,7 @@ void loop() {
   if (distance < 20) {
     int brakeFactor = map(distance, 0, 20, speed, 0);
     speed = constrain(brakeFactor, 0, 255);
-    currentSpeed = speed; // update currentSpeed so we resume braking state correctly
+    currentSpeed = speed;
   }
 
   analogWrite(enablePin, speed);
@@ -156,19 +159,27 @@ void loop() {
   int angle = map(speed, 0, 255, 0, 180);
   speedServo.write(angle);
 
+  // --------------------- STEPPER STEERING ---------------------
+  int joyX = analogRead(joyXPin);
+  if (abs(joyX - joyCenter) > joyDeadzone) {
+    if (joyX > joyCenter) {
+      myStepper.step(1);  // Turn right
+    } else {
+      myStepper.step(-1); // Turn left
+    }
+  }
+
   // --------------------- DEBUG OUTPUT ---------------------
-  Serial.print("Drone mode: ");
-  Serial.print(droneMode ? "ON" : "OFF");
-  Serial.print("  Speed = ");
-  Serial.print(speed);
-  Serial.print("  Digit = ");
-  Serial.print(displayDigit);
-  Serial.print("  Servo Angle = ");
-  Serial.print(angle);
-  Serial.print("  Total Accel = ");
-  Serial.print(totalAccel);
-  Serial.print("  Distance = ");
-  Serial.println(distance);
+Serial.println(
+  String("Drone: ") + (droneMode ? "ON" : "OFF") +
+  " Speed: " + speed +
+  " Digit: " + displayDigit +
+  " Servo: " + angle +
+  " Accel: " + totalAccel +
+  " Dist: " + distance + 
+  
+);
+
 
   delay(100);
 }
