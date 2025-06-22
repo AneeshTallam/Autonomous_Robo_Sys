@@ -23,20 +23,20 @@ void setup() {
   //X-axis
   Wire.beginTransmission(ADXL345);
   Wire.write(0x1E);  // X-axis offset register
-  Wire.write(1);
+  Wire.write(4);
   Wire.endTransmission();
   delay(10);
   //Y-axis
   Wire.beginTransmission(ADXL345);
   Wire.write(0x1F); // Y-axis offset register
-  Wire.write(-2);
+  Wire.write(2);
   Wire.endTransmission();
   delay(10);
   
   //Z-axis
   Wire.beginTransmission(ADXL345);
   Wire.write(0x20); // Z-axis offset register
-  Wire.write(-7);
+  Wire.write(3);
   Wire.endTransmission();
   delay(10);
 }

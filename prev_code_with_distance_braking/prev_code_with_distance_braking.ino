@@ -27,8 +27,8 @@ const int trigPin = 5;
 const int echoPin = 4;
 
 // Stepper motor (via H-bridge)
-const int stepsPerRevolution = 200;
-Stepper myStepper(stepsPerRevolution, 13, 10, 3, 2);
+const int stepsPerRevolution = 2048;
+Stepper myStepper(stepsPerRevolution, 13, 3, 10, 2);
 const int joyCenter = 512;
 const int joyDeadzone = 50;
 
@@ -47,8 +47,8 @@ const byte digitSegments[] = {
 };
 
 // Fall detection thresholds
-const float lowerThreshold = 0.4 * 9.81;
-const float upperThreshold = 2.0 * 9.81;
+const float lowerThreshold = 0.6 * 9.81;
+const float upperThreshold = 1.5 * 9.81;
 
 bool droneMode = false;
 int lastButtonState = HIGH;
@@ -112,7 +112,7 @@ void loop() {
 
   if (totalAccel < lowerThreshold || totalAccel > upperThreshold) {
     analogWrite(enablePin, 0);
-    speedServo.write(0);
+    speedServo.write(180);
     displayDigitOn7Segment(0);
     Serial.print("Fall or impact detected!");
     while (true);
@@ -145,28 +145,44 @@ void loop() {
 
   // --------------------- OBSTACLE BRAKING ---------------------
   long distance = getDistanceCM();
+
   if (distance < 20) {
-    int brakeFactor = map(distance, 0, 20, speed, 0);
-    speed = constrain(brakeFactor, 0, 255);
-    currentSpeed = speed;
+    // Target speed linearly scales with distance
+    int targetSpeed = map(distance, 0, 20, 0, currentSpeed);
+
+    // Smooth braking: step-wise approach toward target
+    if (currentSpeed > targetSpeed) {
+      int brakingRate = map(distance, 0, 20, 20, 2);  // stronger braking when closer
+      currentSpeed -= min(brakingRate, currentSpeed - targetSpeed);
+      currentSpeed = constrain(currentSpeed, 0, 255);
+    }
+    speed = currentSpeed;
   }
+
+
 
   analogWrite(enablePin, speed);
 
   int displayDigit = map(speed, 0, 255, 0, 9);
   displayDigitOn7Segment(displayDigit);
 
-  int angle = map(speed, 0, 255, 0, 180);
+  int angle = map(speed, 0, 255, 180, 0);
   speedServo.write(angle);
 
   // --------------------- STEPPER STEERING ---------------------
-  int joyX = analogRead(joyXPin);
-  if (abs(joyX - joyCenter) > joyDeadzone) {
-    if (joyX > joyCenter) {
-      myStepper.step(1);  // Turn right
-    } else {
-      myStepper.step(-1); // Turn left
-    }
+
+  int joyX = analogRead(joyXPin);  // Read horizontal joystick axis
+  if(droneMode){
+   if (joyX > joyCenter + joyDeadzone) {
+    // Joystick pushed to the right → turn right
+    myStepper.setSpeed(10);
+    myStepper.step(10);  // Positive steps = clockwise
+  }
+  else if (joyX < joyCenter - joyDeadzone) {
+    // Joystick pushed to the left → turn left
+    myStepper.setSpeed(10);
+    myStepper.step(-10); // Negative steps = counter-clockwise
+  }
   }
 
   // --------------------- DEBUG OUTPUT ---------------------
@@ -176,7 +192,7 @@ Serial.println(
   " Digit: " + displayDigit +
   " Servo: " + angle +
   " Accel: " + totalAccel +
-  " Dist: " + distance + 
+  " Dist: " + distance
   
 );
 
