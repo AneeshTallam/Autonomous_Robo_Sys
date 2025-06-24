@@ -6,7 +6,7 @@
 
 Adafruit_ADXL345_Unified accel = Adafruit_ADXL345_Unified(12345);
 
-const int enablePin = 9;
+const int enablePin = 3;
 
 // 7-segment shift register pins
 const int dataPin  = 8;
@@ -28,7 +28,7 @@ const int echoPin = 4;
 
 // Stepper motor (via H-bridge)
 const int stepsPerRevolution = 2048;
-Stepper myStepper(stepsPerRevolution, 13, 3, 10, 2);
+Stepper myStepper(stepsPerRevolution, 13, 9, 10, 2);
 const int joyCenter = 512;
 const int joyDeadzone = 50;
 
