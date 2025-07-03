@@ -191,11 +191,11 @@ void loop() {
 
   // --------------------- Print statements for debugging ---------------------
   Serial.println(
-    " Speed: " + speed +
+    String(" Speed: ") + speed +
     " Digit: " + displayDigit +
     " Servo: " + angle +
     " Accel: " + totalAccel +
-    " Dist: " + distance + 
+    " Dist: " + distance 
   );
 
   delay(100);
