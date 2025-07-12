@@ -1,0 +1,87 @@
+Digital Pins             Analog pins
+13: SCK           A0: 
+12: MISO                A1: 
+11: MOSI                 A2
+10: CSN		 A3
+9:  CE		 A4
+8:  SER			 A5
+7:  SRCLK
+6:  RCLK
+5: 
+4: 
+3: 
+2: 
+
+1. Rough idea on all the components which are going to be used. And then divide them among the two bread boards
+
+2. Connect RF modules based on pin out diagram. ONLY 3.3 V not 5V. Check both using RF module check
+
+3. Connect 8X8 dot matrix on one board and LCD module on the other
+
+SR1 Pin	Connect To
+14 (DS)	  dataPin from Arduino
+11 (SH_CP) clockPin from Arduino
+12 (ST_CP) latchPin from Arduino
+10 (MR)	+5V (via pull-up resistor optional)
+13 (OE)	GND
+16 (VCC) +5V
+8 (GND)	GND
+9 (Q7’, serial out)	14 (DS) of SR2
+
+
+SR2 Pin	Connect To
+14 (DS)	9 (Q7') of SR1
+11 (SH_CP) Same clockPin
+12 (ST_CP) Same latchPin
+10 (MR)	+5V
+13 (OE)	GND
+16 (VCC) +5V
+8 (GND)	GND
+
+
+Dot matrix display
+Matrix Pin	Column #	Connect to SR1 Pin
+A	Col 1	Q0 (pin 15)
+B	Col 2	Q1 (pin 1)
+C	Col 3	Q2 (pin 2)
+D	Col 4	Q3 (pin 3)
+E	Col 5	Q4 (pin 4)
+F	Col 6	Q5 (pin 5)
+G	Col 7	Q6 (pin 6)
+H	Col 8	Q7 (pin 7)
+
+🔋 Row Pins (Anode, to SR2 outputs)
+Matrix Pin	Row #	Connect to SR2 Pin
+0	Row 1	Q0 (pin 15)
+1	Row 2	Q1 (pin 1)
+2	Row 3	Q2 (pin 2)
+3	Row 4	Q3 (pin 3)
+4	Row 5	Q4 (pin 4)
+5	Row 6	Q5 (pin 5)
+6	Row 7	Q6 (pin 6)
+7	Row 8	Q7 (pin 7)
+
+check all connections using dot_matrix_check
+
+4. Connect LCD.
+
+| LCD Pin | Connect to                             |
+| ------- | -------------------------------------- |
+| 1 VSS   | GND                                    |
+| 2 VDD   | 5V                                     |
+| 3 V0    | GND                                    |
+| 4 RS    | Arduino digital pin 8        |
+| 5 RW    | GND (write only)                       |
+| 6 E     | Arduino digital pin 7        |
+| 7 D0    | Leave unconnected                      |
+| 8 D1    | Leave unconnected                      |
+| 9 D2    | Leave unconnected                      |
+| 10 D3   | Leave unconnected                      |
+| 11 D4   | Arduino digital pin 6         |
+| 12 D5   | Arduino digital pin 5         |
+| 13 D6   | Arduino digital pin 4          |
+| 14 D7   | Arduino digital pin 3         |
+| 15 A    | 5V through 220Ω resistor (backlight +) |
+| 16 K    | GND                                    |
+
+
