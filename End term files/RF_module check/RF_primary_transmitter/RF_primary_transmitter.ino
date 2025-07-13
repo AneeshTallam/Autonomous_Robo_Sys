@@ -1,43 +1,48 @@
 #include <SPI.h>
+#include <nRF24L01.h>
 #include <RF24.h>
+
+#define JOY_X A1
+#define JOY_BTN A2
 
 RF24 radio(9, 10);  // CE, CSN
 
-const byte address[6] = "1Node";
+const byte address[6] = "00001";
+
+struct ControlData {
+  int angle;
+  bool override;
+};
 
 void setup() {
   Serial.begin(9600);
+  pinMode(JOY_BTN, INPUT_PULLUP);
   radio.begin();
-  radio.setPALevel(RF24_PA_LOW);
-  radio.setChannel(108);
   radio.openWritingPipe(address);
-  radio.openReadingPipe(1, address);
+  radio.setPALevel(RF24_PA_LOW);
   radio.stopListening();
 }
 
 void loop() {
-  const char text[] = "Hello from A";
-  Serial.println("Sending to B...");
-  radio.write(&text, sizeof(text));
+  static bool lastBtnState = HIGH;
+  static bool overrideMode = false;
+  static unsigned long lastDebounce = 0;
 
-  delay(10); // Short delay before listening
-  radio.startListening();
+  bool btnState = digitalRead(JOY_BTN);
 
-  unsigned long start_time = millis();
-  while (!radio.available()) {
-    if (millis() - start_time > 500) {
-      Serial.println("No response from B");
-      radio.stopListening();
-      return;
+  if (btnState != lastBtnState && millis() - lastDebounce > 200) {
+    lastDebounce = millis();
+    if (btnState == LOW) {
+      overrideMode = !overrideMode;  // Toggle mode on button press
     }
   }
+  lastBtnState = btnState;
 
-  char reply[32] = "";
-  radio.read(&reply, sizeof(reply));
-  Serial.print("Received from B: ");
-  Serial.println(reply);
-  
-  radio.stopListening();
-  delay(1000);
+  int joyVal = analogRead(JOY_X);
+  int angle = map(joyVal, 0, 1023, 0, 180);
+
+  ControlData data = { angle, overrideMode };
+  radio.write(&data, sizeof(data));
+
+  delay(100);
 }
-
