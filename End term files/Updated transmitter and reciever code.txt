@@ -1,0 +1,449 @@
+This is my transmitter code
+
+// === Transmitter Code ===
+
+#include <SPI.h>
+#include <nRF24L01.h>
+#include <RF24.h>
+#include <Servo.h>
+#include <IRremote.hpp>
+#include <Adafruit_Sensor.h>
+#include <Adafruit_ADXL345_U.h>
+
+#define BUTTON_PIN A3
+#define JOYSTICK_X A1
+#define LDR_PIN A0
+#define DATA_PIN 8
+#define CLOCK_PIN 7
+#define LATCH_PIN 6
+#define SERVO_VALVE_PIN 5
+#define IR_RECEIVE_PIN 3
+#define LED1_PIN 2
+#define LED2_PIN 4
+
+RF24 radio(9, 10);
+const byte addressA[6] = "1Node";
+const byte addressB[6] = "2Node";
+
+Servo valveServo;
+Adafruit_ADXL345_Unified accel = Adafruit_ADXL345_Unified(12345);
+bool securityMode = true;
+bool alarmTriggered = false;
+bool stopAlarm = false;
+
+unsigned long alarmTriggerTime = 0;
+unsigned long stopAlarmTime = 0;
+const unsigned long alarmTimeout = 5000;
+
+const byte sunFrames[5][8] = {
+  {0b00000000,0b00000000,0b00000000,0b00000000,0b00011000,0b00111100,0b00011000,0b00000000},
+  {0b00000000,0b00000000,0b00000000,0b00011000,0b00111100,0b00011000,0b00000000,0b00000000},
+  {0b00000000,0b00000000,0b00011000,0b00111100,0b00011000,0b00000000,0b00000000,0b00000000},
+  {0b00000000,0b00011000,0b00111100,0b00011000,0b00000000,0b00000000,0b00000000,0b00000000},
+  {0b00111100,0b01111110,0b00111100,0b00000000,0b00000000,0b00000000,0b00000000,0b00000000}
+};
+
+struct PayloadToB {
+  int direction;
+  bool controlMode;
+  bool lightDetected;
+  int motorSpeedLevel;
+  bool stopAlarm;
+  bool accelAlarm;
+  bool securityMode;
+};
+
+struct PayloadFromB {
+  bool objectNear;
+  bool lowWater;
+  bool motionDetected;
+  bool ultrasonicAlarm;
+};
+
+bool lastButtonState = HIGH;
+bool sendControl = false;
+int motorSpeedLevel = 0;
+int lastSentSpeed = -1;
+
+unsigned long motionStartTime = 0;
+bool motionLEDActive = false;
+
+void setup() {
+  Serial.begin(9600);
+  pinMode(BUTTON_PIN, INPUT_PULLUP);
+  pinMode(LED1_PIN, OUTPUT);
+  pinMode(LED2_PIN, OUTPUT);
+  pinMode(DATA_PIN, OUTPUT);
+  pinMode(CLOCK_PIN, OUTPUT);
+  pinMode(LATCH_PIN, OUTPUT);
+
+  valveServo.attach(SERVO_VALVE_PIN);
+
+  radio.begin();
+  radio.setPALevel(RF24_PA_LOW);
+  radio.setChannel(108);
+  radio.openWritingPipe(addressA);
+  radio.openReadingPipe(1, addressB);
+  radio.startListening();
+
+  IrReceiver.begin(IR_RECEIVE_PIN, ENABLE_LED_FEEDBACK);
+
+  if (!accel.begin()) {
+    Serial.println("ADXL345 not detected");
+    while (1);
+  }
+  accel.setRange(ADXL345_RANGE_2_G);
+}
+
+void loop() {
+  PayloadFromB received;
+  int joystickValue = analogRead(JOYSTICK_X);
+  int direction = (joystickValue > 562) ? 1 : (joystickValue < 462) ? -1 : 0;
+
+  bool currentButtonState = digitalRead(BUTTON_PIN);
+  if (lastButtonState == HIGH && currentButtonState == LOW) {
+    sendControl = !sendControl;
+    delay(300);
+  }
+  lastButtonState = currentButtonState;
+
+  if (IrReceiver.decode()) {
+    uint32_t command = IrReceiver.decodedIRData.command;
+    if (command == 0x47) {
+      stopAlarm = true;
+      stopAlarmTime = millis();
+    } else if (command == 0x08) {
+      securityMode = true;
+      alarmTriggered = false;
+    } else if (command == 0x1C) {
+      securityMode = false;
+      alarmTriggered = false;
+    }
+    switch (command) {
+      case 0x16: motorSpeedLevel = 0; break;
+      case 0x0C: motorSpeedLevel = 1; break;
+      case 0x18: motorSpeedLevel = 2; break;
+      case 0x5E: motorSpeedLevel = 3; break;
+    }
+    IrReceiver.resume();
+  }
+
+  if (securityMode) {
+    sensors_event_t event;
+    accel.getEvent(&event);
+    int16_t x = (int16_t)(event.acceleration.x * 256);
+    int16_t y = (int16_t)(event.acceleration.y * 256);
+    if (abs(x) > 1000 || abs(y) > 1000) {
+      if (!alarmTriggered) {
+        alarmTriggered = true;
+        alarmTriggerTime = millis();
+      }
+    }
+  }
+
+  if (alarmTriggered && millis() - alarmTriggerTime > alarmTimeout) {
+    alarmTriggered = false;
+  }
+
+  if (stopAlarm && millis() - stopAlarmTime > alarmTimeout) {
+    stopAlarm = false;
+  }
+
+  int ldrValue = analogRead(LDR_PIN);
+  bool lightDetected = (ldrValue > 500);
+
+  radio.stopListening();
+  PayloadToB payload = {direction, sendControl, lightDetected, motorSpeedLevel, stopAlarm, alarmTriggered, securityMode};
+  radio.write(&payload, sizeof(payload));
+  radio.startListening();
+
+  if (radio.available()) {
+    radio.read(&received, sizeof(received));
+
+    if (received.motionDetected) {
+      digitalWrite(LED1_PIN, HIGH);
+      digitalWrite(LED2_PIN, HIGH);
+      motionStartTime = millis();
+      motionLEDActive = true;
+    }
+
+    if (motionLEDActive && millis() - motionStartTime > 5000) {
+      digitalWrite(LED1_PIN, LOW);
+      digitalWrite(LED2_PIN, LOW);
+      motionLEDActive = false;
+    }
+
+    valveServo.write(received.lowWater ? 90 : 0);
+  }
+
+  if (alarmTriggered || received.ultrasonicAlarm) showXOnDisplay();
+  else if (lightDetected) for (int i = 0; i < 5; i++) displayFrame(sunFrames[i], 200);
+  else shiftOutDual(0x00, 0x00);
+
+  delay(100);
+}
+
+void displayFrame(const byte frame[8], int durationMs) {
+  unsigned long start = millis();
+  while (millis() - start < durationMs) {
+    for (int row = 0; row < 8; row++) {
+      byte rowData = 1 << row;
+      byte colData = ~frame[row];
+      shiftOutDual(rowData, colData);
+      delay(1);
+    }
+  }
+}
+
+void showXOnDisplay() {
+  for (int i = 0; i < 8; i++) {
+    byte rowByte = 1 << i;
+    byte colByte = ~((1 << i) | (1 << (7 - i)));
+    shiftOutDual(rowByte, colByte);
+    delay(5);
+    shiftOutDual(0x00, 0xFF);
+    delay(5);
+  }
+}
+
+void shiftOutDual(byte rowData, byte colData) {
+  digitalWrite(LATCH_PIN, LOW);
+  shiftOut(DATA_PIN, CLOCK_PIN, MSBFIRST, rowData);
+  shiftOut(DATA_PIN, CLOCK_PIN, MSBFIRST, colData);
+  digitalWrite(LATCH_PIN, HIGH);
+}
+
+This is my receiver code
+
+#include <SPI.h>
+#include <nRF24L01.h>
+#include <RF24.h>
+#include <Servo.h>
+
+#define CCTV_SERVO_PIN A0
+#define TRIG_PIN A5
+#define ECHO_PIN A4
+#define BUZZER_PIN 6
+#define WATER_SENSOR_PIN A3
+#define MOTOR_PWM_PIN 5
+#define PIR_SENSOR_PIN 4
+
+RF24 radio(9, 8); // CE, CSN
+const byte addressA[6] = "1Node";
+const byte addressB[6] = "2Node";
+
+int melody[] = { 523, 587, 659, 698, 784 };  // C5-G5
+int noteDurations[] = { 300, 300, 300, 300, 600 };
+const int melodyLength = 5;
+
+int melodyIndex = 0;
+unsigned long lastNoteTime = 0;
+bool playingMelody = false;
+
+Servo cctvServo;
+
+struct PayloadFromB {
+  int direction;
+  bool controlMode;
+  bool lightDetected;
+  int motorSpeedLevel;
+  bool stopAlarm;
+  bool accelAlarm;
+  bool securityMode;
+};
+
+struct PayloadFromA {
+  bool objectNear;
+  bool lowWater;
+  bool motionDetected;
+  bool ultrasonicAlarm;
+};
+
+bool manualMode = false;
+bool lightDetected = false;
+bool alarmActive = false;
+bool intrusionAlarmActive = false;
+bool sunriseAlarmActive = false;
+bool intrusionSuppressed = false;
+bool lowWater = false;
+bool securityMode = true;
+
+int direction = 0;
+int cctvPos = 90;
+bool forward = true;
+int lastMotorSpeedLevel = -1;
+
+unsigned long intrusionSuppressedUntil = 0;
+unsigned long lastBeepTime = 0;
+const unsigned long beepDuration = 150;
+const unsigned long beepInterval = 300;
+
+void setup() {
+  Serial.begin(9600);
+  pinMode(TRIG_PIN, OUTPUT);
+  pinMode(ECHO_PIN, INPUT);
+  pinMode(MOTOR_PWM_PIN, OUTPUT);
+  pinMode(BUZZER_PIN, OUTPUT);
+  pinMode(PIR_SENSOR_PIN, INPUT);
+  analogWrite(MOTOR_PWM_PIN, 0);
+  cctvServo.attach(CCTV_SERVO_PIN);
+
+  radio.begin();
+  radio.setPALevel(RF24_PA_LOW);
+  radio.setChannel(108);
+  radio.openReadingPipe(1, addressA);
+  radio.openWritingPipe(addressB);
+  radio.startListening();
+
+  Serial.println("Receiver ready with SECURITY MODE ON.");
+}
+
+void loop() {
+  
+  float distance = readUltrasonicDistance();
+  bool ultrasonicAlarm = (securityMode && !intrusionSuppressed && distance > 10);
+  
+  unsigned long now = millis();
+  
+  bool motionDetected = digitalRead(PIR_SENSOR_PIN);
+  Serial.println(motionDetected);
+  
+  if (radio.available()) {
+    PayloadFromB payloadB;
+    radio.read(&payloadB, sizeof(PayloadFromB));
+
+    manualMode = payloadB.controlMode;
+    direction = payloadB.direction;
+    lightDetected = payloadB.lightDetected;
+    securityMode = payloadB.securityMode;
+
+    Serial.print("📡 Received payload. Security Mode: ");
+    Serial.println(securityMode ? "ON" : "OFF");
+
+    if (payloadB.stopAlarm) {
+      alarmActive = false;
+      intrusionAlarmActive = false;
+      sunriseAlarmActive = false;
+      intrusionSuppressed = true;
+      intrusionSuppressedUntil = now + 10000;
+      noTone(BUZZER_PIN);
+      Serial.println("🔇 All alarms stopped. Intrusion and sunrise alarm suppressed.");
+    }
+
+    if (payloadB.accelAlarm) {
+      alarmActive = true;
+      Serial.println("🚨 Acceleration alarm triggered.");
+    }
+
+    if (lightDetected && !sunriseAlarmActive && !alarmActive && !intrusionAlarmActive) {
+      sunriseAlarmActive = true;
+      Serial.println("🌅 Sunrise alarm activated.");
+    }
+
+    if (payloadB.motorSpeedLevel != lastMotorSpeedLevel) {
+      lastMotorSpeedLevel = payloadB.motorSpeedLevel;
+      int speed = 0;
+      switch (payloadB.motorSpeedLevel) {
+        case 0: speed = 0; break;
+        case 1: speed = 170; break;
+        case 2: speed = 210; break;
+        case 3: speed = 255; break;
+      }
+      analogWrite(MOTOR_PWM_PIN, speed);
+      Serial.print("Motor speed set to level ");
+      Serial.println(payloadB.motorSpeedLevel);
+    }
+  }
+
+  // CCTV sweep
+  if (manualMode) {
+    if (direction != 0) {
+      cctvPos += direction;
+      cctvPos = constrain(cctvPos, 0, 180);
+      cctvServo.write(cctvPos);
+      delay(15);
+    }
+  } else {
+    cctvPos += forward ? 1 : -1;
+    if (cctvPos >= 180 || cctvPos <= 0) forward = !forward;
+    cctvServo.write(cctvPos);
+    delay(15);
+  }
+
+  Serial.print("📏 Ultrasonic distance: ");
+  Serial.println(distance);
+
+  // Intrusion detection
+  if (securityMode && !intrusionSuppressed && distance > 10) {
+    if (!intrusionAlarmActive) {
+      intrusionAlarmActive = true;
+      Serial.println("🚨 Intrusion detected via ultrasonic.");
+    }
+  }
+
+  if (intrusionSuppressed && now >= intrusionSuppressedUntil) {
+    intrusionSuppressed = false;
+    Serial.println("🔓 Intrusion alarm suppression expired.");
+  }
+
+  // 🔊 Separated Buzzer Logic
+  if (alarmActive || intrusionAlarmActive) {
+    // Emergency Beep Tone
+    if (now - lastBeepTime < beepDuration) {
+      tone(BUZZER_PIN, 1000);  // Beep
+    } else if (now - lastBeepTime < beepInterval) {
+      noTone(BUZZER_PIN);     // Pause
+    } else {
+      lastBeepTime = now;
+    }
+    } else if (sunriseAlarmActive) {
+    // Wake-up melody
+    if (!playingMelody) {
+      playingMelody = true;
+      melodyIndex = 0;
+      lastNoteTime = now;
+      tone(BUZZER_PIN, melody[melodyIndex]);
+    } else {
+      if (now - lastNoteTime >= noteDurations[melodyIndex]) {
+        melodyIndex++;
+        if (melodyIndex < melodyLength) {
+          tone(BUZZER_PIN, melody[melodyIndex]);
+          lastNoteTime = now;
+        } else {
+          noTone(BUZZER_PIN);
+          playingMelody = false;  // Stop after one full round
+        }
+      }
+    }
+  } else {
+    noTone(BUZZER_PIN);
+    playingMelody = false;  // Reset if alarm is turned off
+  }
+
+
+  // Water and motion data transmission
+  bool objectNear = (distance <= 20);
+  int waterLevel = analogRead(WATER_SENSOR_PIN);
+  if (!lowWater && waterLevel < 580) lowWater = true;
+  else if (lowWater && waterLevel >=580) lowWater = false;
+
+  Serial.print("💧 Water Level: ");
+  Serial.print(waterLevel);
+  Serial.print(" | Low Water: ");
+  Serial.println(lowWater ? "YES" : "NO");
+
+  PayloadFromA payloadA = {objectNear, lowWater, motionDetected, ultrasonicAlarm};
+  radio.stopListening();
+  radio.write(&payloadA, sizeof(payloadA));
+  radio.startListening();
+}
+
+float readUltrasonicDistance() {
+  digitalWrite(TRIG_PIN, LOW);
+  delayMicroseconds(2);
+  digitalWrite(TRIG_PIN, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(TRIG_PIN, LOW);
+  long duration = pulseIn(ECHO_PIN, HIGH, 30000);
+  return duration * 0.034 / 2.0;
+}
